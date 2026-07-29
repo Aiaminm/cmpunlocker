@@ -2,25 +2,10 @@
 
 Unlock tool for the NVIDIA CMP 170HX (GA100) mining card. Restores full SM compute throughput and unlocked HBM2e memory geometry that are restricted in firmware/OTP configuration.
 
-Targets **nvidia-open driver 610.43.0x** on Linux. cmpunlocker does **not** install the full NVIDIA userspace package — it patches and installs open kernel modules only.
 
 **[Join our Discord community](https://discord.gg/CdHSakKSFv)** for support and discussions.
 
 ---
-
-## Background
-
-The CMP 170HX is a physically complete GA100 die (same silicon as the A100) with compute and memory artificially limited. This tool applies an in-driver unlock path (SEC2 Booter PLM open + host SS0/SS1/CFG1/LMR writes + FB/PMA adjustments) that runs automatically every time the patched modules boot GSP for PCI ID `0x20C2`.
-
-Card size selects the memory geometry:
-
-| Physical card | Unlock geometry | CFG1 | LMR |
-|---|---|---|---|
-| **8 GB** | **64 GB** | `0x02779000` | `0x0000020B` |
-| **10 GB** | **40 GB** | `0x02669000` | `0x0000028A` |
-
----
-
 ## Proof of Concept
 
 Below are memory and performance results after applying the unlock:
@@ -50,51 +35,20 @@ Below are memory and performance results after applying the unlock:
 
 ## Install
 
-One command. Auto-detects 8GB vs 10GB from stock `nvidia-smi` memory, then builds patched open kernel modules into `/lib/modules/$(uname -r)/updates/cmpunlocker/`.
+To install cmpunlocker, run the following command:
 
 ```bash
 sudo ./install.sh
 ```
 
-Force a profile if detection is wrong or `nvidia-smi` is unavailable:
+To force a certain memory profile, use the `--profile` option:
 
 ```bash
 sudo ./install.sh --profile=8gb    # 8GB card → 64GB unlock
 sudo ./install.sh --profile=10gb   # 10GB card → 40GB unlock
 ```
 
-### IOMMU
-
-The installer also enables the IOMMU in passthrough mode, appending `intel_iommu=on iommu=pt` (Intel) or `amd_iommu=on iommu=pt` (AMD) to the kernel command line via `/etc/default/grub` or `/etc/kernel/cmdline`, then regenerating the boot config. Conflicting `iommu=` / `*_iommu=` entries are replaced, the original file is backed up to `*.cmpunlocker.bak`, and `remove.sh` restores it.
-
-This takes effect on the next reboot, and still requires VT-d / AMD-Vi to be enabled in BIOS/UEFI. To leave the kernel command line untouched:
-
-```bash
-sudo ./install.sh --no-iommu
-```
-
-Then perform a **cold reboot** (full power off, then boot) if modules did not hot-reload cleanly, or if memory still shows the stock size.
-
----
-
-## Verify
-
-```bash
-nvidia-smi
-# 8GB card:  expect ~65536 MiB
-# 10GB card: expect ~40960 MiB
-
-nvidia-smi --query-gpu=memory.total,pcie.link.gen.current,pcie.link.gen.max,clocks.max.sm --format=csv
-# Expect pcie.link.gen.current=2 and pcie.link.gen.max=2 after reboot
-
-sudo lspci -d 10de:20c2 -vv | grep -E 'LnkCap:|LnkSta:'
-# Expect LnkSta: Speed 5GT/s (not 2.5GT/s)
-
-sudo dmesg | grep SEC2_DEBUG
-# Expected: PLMs opening to 0xffffffff, CFG1/LMR/SS0/SS1 writes, late PMA
-cat /lib/modules/$(uname -r)/updates/cmpunlocker/card_profile
-# 8gb or 10gb
-```
+Then perform a cold reboot (full power off, then boot).
 
 ## What Gets Unlocked
 
@@ -102,22 +56,19 @@ cat /lib/modules/$(uname -r)/updates/cmpunlocker/card_profile
 |---|---|
 | Full SM compute throughput (SS0/SS1) | Working ✓ |
 | Memory geometry (64GB on 8GB cards, 40GB on 10GB cards) | Working ✓ |
-| PCIe Gen2 link (`5GT/s`, Device Max ≥ 2) | Working ✓ |
 | Persistence across reboot (patched modules) | Working ✓ |
 
 ---
 
 ## Uninstall
 
-Restore stock module loading:
+To uninstall cmpunlocker, run the following command:
 
 ```bash
-sudo ./remove.sh --yes
+sudo ./uninstall.sh --yes
 ```
 
-This removes `/lib/modules/*/updates/cmpunlocker/`, runs `depmod`, and attempts to reload stock NVIDIA modules. Reboot if the GPU does not come back cleanly.
-
----
+Then perform a cold reboot (full power off, then boot).
 
 ## Support & Community
 
