@@ -56,6 +56,7 @@ Then perform a cold reboot (full power off, then boot).
 |---|---|
 | Full SM compute throughput (SS0/SS1) | Working ✓ |
 | Memory geometry (64GB on 8GB cards, 40GB on 10GB cards) | Working ✓ |
+| PCIe Gen 2 speeds | Working ✓ |
 | Persistence across reboot (patched modules) | Working ✓ |
 
 ---
