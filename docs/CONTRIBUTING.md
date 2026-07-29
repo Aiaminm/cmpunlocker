@@ -35,5 +35,3 @@ Thanks for your interest in contributing to cmpunlocker! This guide covers submi
 - **Bash scripts**: Strict mode (`set -euo pipefail`), quote variables, error checking.
 - **Comments in patches**: Use standard patch comments (`---` and `+++` headers); C comments go in the patched code.
 - **Testing**: Always test on physical hardware before submitting. Describe your test environment (distro, kernel version, card variant).
-
----
