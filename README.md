@@ -63,6 +63,16 @@ sudo ./install.sh --profile=8gb    # 8GB card → 64GB unlock
 sudo ./install.sh --profile=10gb   # 10GB card → 40GB unlock
 ```
 
+### IOMMU
+
+The installer also enables the IOMMU in passthrough mode, appending `intel_iommu=on iommu=pt` (Intel) or `amd_iommu=on iommu=pt` (AMD) to the kernel command line via `/etc/default/grub` or `/etc/kernel/cmdline`, then regenerating the boot config. Conflicting `iommu=` / `*_iommu=` entries are replaced, the original file is backed up to `*.cmpunlocker.bak`, and `remove.sh` restores it.
+
+This takes effect on the next reboot, and still requires VT-d / AMD-Vi to be enabled in BIOS/UEFI. To leave the kernel command line untouched:
+
+```bash
+sudo ./install.sh --no-iommu
+```
+
 Then perform a **cold reboot** (full power off, then boot) if modules did not hot-reload cleanly, or if memory still shows the stock size.
 
 ---
@@ -74,18 +84,17 @@ nvidia-smi
 # 8GB card:  expect ~65536 MiB
 # 10GB card: expect ~40960 MiB
 
-nvidia-smi --query-gpu=memory.total,clocks.max.sm --format=csv
+nvidia-smi --query-gpu=memory.total,pcie.link.gen.current,pcie.link.gen.max,clocks.max.sm --format=csv
+# Expect pcie.link.gen.current=2 and pcie.link.gen.max=2 after reboot
+
+sudo lspci -d 10de:20c2 -vv | grep -E 'LnkCap:|LnkSta:'
+# Expect LnkSta: Speed 5GT/s (not 2.5GT/s)
 
 sudo dmesg | grep SEC2_DEBUG
 # Expected: PLMs opening to 0xffffffff, CFG1/LMR/SS0/SS1 writes, late PMA
-
 cat /lib/modules/$(uname -r)/updates/cmpunlocker/card_profile
 # 8gb or 10gb
 ```
-
-Booter status codes such as `0x31` / `0xffff` during the early PLM Booter passes can appear and are often harmless if the final boot succeeds.
-
----
 
 ## What Gets Unlocked
 
@@ -93,6 +102,7 @@ Booter status codes such as `0x31` / `0xffff` during the early PLM Booter passes
 |---|---|
 | Full SM compute throughput (SS0/SS1) | Working ✓ |
 | Memory geometry (64GB on 8GB cards, 40GB on 10GB cards) | Working ✓ |
+| PCIe Gen2 link (`5GT/s`, Device Max ≥ 2) | Working ✓ |
 | Persistence across reboot (patched modules) | Working ✓ |
 
 ---
